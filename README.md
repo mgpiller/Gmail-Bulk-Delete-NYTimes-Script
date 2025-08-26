@@ -2,6 +2,8 @@
 Script to run in gmail to bulk delete emails from NYTimes
 /**
  * Google Apps Script to batch delete all emails from @nytimes.com in Gmail
+ * You have to be logged in to gmail email account to give permission for the script to run once it is executing
+ * 
  * 
  * Setup Instructions:
  * 1. Go to https://script.google.com
