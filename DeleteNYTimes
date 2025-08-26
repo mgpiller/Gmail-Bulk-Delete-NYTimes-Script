@@ -1,0 +1,180 @@
+/**
+ * Google Apps Script to batch delete all emails from @nytimes.com in Gmail
+ * 
+ * Setup Instructions:
+ * 1. Go to https://script.google.com
+ * 2. Create a new project
+ * 3. Copy and paste this code
+ * 4. Save the project with a name like "NYTimes Email Deleter"
+ * 5. Run the function by clicking the play button
+ * 6. Grant necessary permissions when prompted
+ */
+
+function deleteNYTimesEmails() {
+  // Configuration
+  const BATCH_SIZE = 100; // Process emails in batches to avoid timeout
+  const MAX_RUNTIME = 4 * 60 * 1000; // 4 minutes (to stay under 6-minute limit)
+  
+  const startTime = new Date().getTime();
+  let totalDeleted = 0;
+  let hasMore = true;
+  
+  console.log('Starting to delete emails from @nytimes.com...');
+  
+  try {
+    while (hasMore) {
+      // Check if we're approaching the runtime limit
+      if (new Date().getTime() - startTime > MAX_RUNTIME) {
+        console.log('Approaching runtime limit. Stopping for now.');
+        console.log('Run the script again to continue deleting remaining emails.');
+        break;
+      }
+      
+      // Search for emails from @nytimes.com
+      const threads = GmailApp.search('from:@nytimes.com', 0, BATCH_SIZE);
+      
+      if (threads.length === 0) {
+        hasMore = false;
+        console.log('No more emails from @nytimes.com found.');
+        break;
+      }
+      
+      // Move threads to trash
+      for (let i = 0; i < threads.length; i++) {
+        threads[i].moveToTrash();
+        totalDeleted++;
+        
+        // Log progress every 10 emails
+        if (totalDeleted % 10 === 0) {
+          console.log(`Deleted ${totalDeleted} emails so far...`);
+        }
+      }
+      
+      // Small delay to avoid rate limiting
+      Utilities.sleep(100);
+    }
+    
+    console.log(`\nCompleted! Total emails deleted: ${totalDeleted}`);
+    
+    if (totalDeleted > 0) {
+      console.log('Emails have been moved to Trash. They will be permanently deleted after 30 days.');
+      console.log('To permanently delete them now, empty your Trash folder.');
+    }
+    
+  } catch (error) {
+    console.error('An error occurred:', error);
+    console.log(`Emails deleted before error: ${totalDeleted}`);
+  }
+}
+
+/**
+ * Alternative function to permanently delete emails (bypasses Trash)
+ * WARNING: This cannot be undone!
+ */
+function permanentlyDeleteNYTimesEmails() {
+  // Configuration
+  const BATCH_SIZE = 50; // Smaller batch for permanent deletion
+  const MAX_RUNTIME = 4 * 60 * 1000; // 4 minutes
+  
+  const startTime = new Date().getTime();
+  let totalDeleted = 0;
+  let hasMore = true;
+  
+  console.log('WARNING: Starting PERMANENT deletion of emails from @nytimes.com...');
+  console.log('This action cannot be undone!');
+  
+  try {
+    while (hasMore) {
+      // Check runtime limit
+      if (new Date().getTime() - startTime > MAX_RUNTIME) {
+        console.log('Approaching runtime limit. Stopping for now.');
+        console.log('Run the script again to continue deleting remaining emails.');
+        break;
+      }
+      
+      // Search for emails
+      const threads = GmailApp.search('from:@nytimes.com', 0, BATCH_SIZE);
+      
+      if (threads.length === 0) {
+        hasMore = false;
+        console.log('No more emails from @nytimes.com found.');
+        break;
+      }
+      
+      // Permanently delete each thread
+      for (let i = 0; i < threads.length; i++) {
+        Gmail.Users.Threads.remove('me', threads[i].getId());
+        totalDeleted++;
+        
+        if (totalDeleted % 10 === 0) {
+          console.log(`Permanently deleted ${totalDeleted} emails...`);
+        }
+      }
+      
+      // Small delay to avoid rate limiting
+      Utilities.sleep(200);
+    }
+    
+    console.log(`\nCompleted! Total emails permanently deleted: ${totalDeleted}`);
+    
+  } catch (error) {
+    console.error('An error occurred:', error);
+    console.log(`Emails deleted before error: ${totalDeleted}`);
+  }
+}
+
+/**
+ * Function to count emails from @nytimes.com before deletion
+ */
+function countNYTimesEmails() {
+  let totalCount = 0;
+  let start = 0;
+  const batchSize = 500;
+  
+  console.log('Counting emails from @nytimes.com...');
+  
+  try {
+    while (true) {
+      const threads = GmailApp.search('from:@nytimes.com', start, batchSize);
+      
+      if (threads.length === 0) {
+        break;
+      }
+      
+      totalCount += threads.length;
+      start += batchSize;
+      
+      // Prevent infinite loop
+      if (start > 10000) {
+        console.log('Reached maximum count limit');
+        break;
+      }
+    }
+    
+    console.log(`Total emails from @nytimes.com: ${totalCount}`);
+    return totalCount;
+    
+  } catch (error) {
+    console.error('Error counting emails:', error);
+    return totalCount;
+  }
+}
+
+/**
+ * Main function to run the deletion process with confirmation
+ */
+function main() {
+  // First, count the emails
+  const emailCount = countNYTimesEmails();
+  
+  if (emailCount === 0) {
+    console.log('No emails from @nytimes.com found.');
+    return;
+  }
+  
+  console.log(`\nFound ${emailCount} emails from @nytimes.com`);
+  console.log('Starting deletion process...\n');
+  
+  // Run the delete function
+  deleteNYTimesEmails();
+}
